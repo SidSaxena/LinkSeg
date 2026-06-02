@@ -3,6 +3,7 @@ import warnings
 from typing import Optional, Sequence, Tuple, Union
 from collections import OrderedDict
 import argparse
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 import torch
 import torchaudio
 import librosa
@@ -56,10 +57,10 @@ def load_model(args) -> LinkSeg:
     print('Model path =', model_path)
 
     if '.ckpt' in model_path:
-        model_path = torch.load(model_path)
+        model_path = torch.load(model_path, map_location=torch.device('cpu'))
         state_dict = model_path['state_dict']
     else:
-        state_dict = torch.load(model_path)
+        state_dict = torch.load(model_path, map_location=torch.device('cpu'))
     new_state_dict = OrderedDict()
 
     for k, v in state_dict.items():
@@ -87,10 +88,11 @@ def predict_from_files(args):
         gpu: index of GPU to use (-1 for CPU)
     """
     gpu = args.gpu
-    if gpu >= 0 and not torch.cuda.is_available():
-        warnings.warn("You're trying to use the GPU but no GPU has been found. Using CPU instead...")
-        gpu = -1
-    device = torch.device(f"cuda:{gpu:d}" if gpu >= 0 else "cpu")
+    if gpu >= 0 and torch.cuda.is_available():
+        device = torch.device(f"cuda:{gpu:d}")
+    else:
+        # Use CPU - MPS doesn't support complex tensors needed for FFT/spectrogram
+        device = torch.device("cpu")
     print(device)
 
     # define model

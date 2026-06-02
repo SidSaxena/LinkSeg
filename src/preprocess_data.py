@@ -25,11 +25,12 @@ def madmom_beats(file_struct, y_, sr):
         file_struct.audio_file = audiofile
         y_, sr = librosa.load(audiofile, mono=True)
     
+    sr_ = sr
     if sr != 44100:
         y_ = librosa.resample(y_, orig_sr=sr, target_sr=44100)
         sr_ = 44100
 
-    audio_duration = librosa.get_duration(y_, sr=sr_)
+    audio_duration = librosa.get_duration(y=y_, sr=sr_)
     proc = madmom.features.beats.BeatTrackingProcessor(fps=100)
     act = madmom.features.beats.RNNBeatProcessor()(y_)
     beat_times = np.asarray(proc(act))

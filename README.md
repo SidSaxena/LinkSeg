@@ -1,7 +1,7 @@
 <div  align="center">
   
 # LinkSeg: Using Pairwise Link Prediction and Graph Attention Networks for Music Structure Analysis
-  
+
 [Morgan Buisson](https://morgan76.github.io/)<sup>1</sup>,
 [Brian McFee](https://brianmcfee.net/)<sup>2,3</sup>,
 [Slim Essid](https://slimessid.github.io/research/)<sup>1</sup> <br>
@@ -26,29 +26,62 @@ This repository provides code for training the system from scratch along with so
 0. [Dataset](#dataset)
 0. [Training](#training)
 0. [Inference](#inference)
+0. [Apple Silicon Notes](#apple-silicon-notes)
 0. [Citing](#citing)
 0. [Contact](#contact)
 
 ## Requirements
-Install FFmpeg for ubuntu:
 
+### Option 1: Using uv (Recommended)
+
+Install FFmpeg:
+
+**Ubuntu:**
 ```shell
 sudo apt install ffmpeg
 ```
 
-For macOS:
-
+**macOS:**
 ```shell
 brew install ffmpeg
 ```
 
-Create new environment and install dependencies:
+Install uv and set up the environment:
+```shell
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone the repository
+git clone https://github.com/SidSaxena/LinkSeg.git
+cd LinkSeg
+
+# Install dependencies (madmom installed automatically from git)
+uv sync
+
+# Activate the environment
+source .venv/bin/activate
 ```
-conda create -n YOUR_ENV_NAME python=3.9
+
+### Option 2: Using conda
+
+Install FFmpeg:
+
+**Ubuntu:**
+```shell
+sudo apt install ffmpeg
+```
+
+**macOS:**
+```shell
+brew install ffmpeg
+```
+
+Create environment and install dependencies:
+```shell
+conda create -n YOUR_ENV_NAME python=3.11
 conda activate YOUR_ENV_NAME
-pip install git+https://github.com/CPJKU/madmom # install madmom from github
+pip install git+https://github.com/CPJKU/madmom
 pip install -r requirements.txt
-cd src/
 ```
 
 ## Dataset
@@ -61,41 +94,51 @@ dataset/
 └── references              # references files (.jams) (if available, necessary for training)
 ```
 
+**Important:** The preprocessing and inference scripts expect audio files to be located directly in the `audio/` subdirectory. If your audio files are organized in nested subdirectories (e.g., `dataset/audio/artist/track.mp3`), you have two options:
+
+1. **Flatten the structure** (recommended): Create symlinks or copy all audio files into a single `audio/` directory:
+   ```shell
+   mkdir -p dataset/audio
+   find /path/to/your/music -name "*.mp3" -exec ln -s {} dataset/audio/ \;
+   ```
+
+2. **Use a flat directory**: Place all audio files directly in `dataset/audio/` without subdirectories.
+
 To preprocess some dataset, run:
-```
+```shell
 python preprocess_data.py --data_path <dataset_path>
 ```
 This will handle the creation of [`dataset/audio_npy/`](dataset/audio_npy/) (conversion to numpy files) and [`dataset/features/`](dataset/features/) files (beat estimation). 
 
 ## Training
 To train a new LinkSeg model, run:
-```
+```shell
 python train.py --data_path <dataset_path>
 ```
 
 The default label taxonomy contains 7 section labels: "Intro", "Verse", "Chorus", "Bridge", "Instrumental", "Outro" and "Silence". A second taxonomy containing "Pre-chorus" and "Post-chorus" labels can be used:
-```
+```shell
 python train.py --data_path <dataset_path> --nb_section_labels 9
 ``` 
 
 ## Inference
 To make predictions using a trained model, first make sure that the test dataset is processed: 
-```
+```shell
 python preprocess_data.py --data_path <test_dataset_path>
 ```
 
 Then run:
-```
+```shell
 python predict.py --test_data_path <test_dataset_path> --model_name <path_to_model>
 ```
 
 To use the 7-class pre-trained model (on a 75% split of Harmonix), run:
-```
+```shell
 python predict.py --test_data_path <dataset_path> --model_name ../data/model_7_classes.pt
 ```
 
 To use the 9-class pre-trained model, run:
-```
+```shell
 python predict.py --test_data_path <dataset_path> --model_name ../data/model_9_classes.pt
 ```
 
@@ -103,6 +146,12 @@ By default, segmentation predictions will be saved in [JAMS](https://jams.readth
 
 Keep in mind that boundary predictions are calculated from the features of two consecutive time frames $x\prime \prime_{i}$, $x\prime \prime_{i+1}$ and the features $e\prime_{i,i+1}$ of the link connecting them. Therefore, boundary predictions fall **between** consecutive estimated beat locations. 
 
+## Apple Silicon Notes
+
+- **MPS (Metal Performance Shaders) Support**: The model automatically detects and uses MPS when available on Apple Silicon Macs.
+- **FFT Operations**: Some operations (FFT/spectrogram) are not yet supported on MPS and will automatically fall back to CPU. This is handled transparently.
+- **Performance**: For best performance on Apple Silicon, the model will use CPU mode with MPS fallback enabled.
+- **Environment Variable**: The script automatically sets `PYTORCH_ENABLE_MPS_FALLBACK=1` to handle unsupported operations.
 
 ## Segmentation Example
 
