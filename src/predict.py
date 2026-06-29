@@ -90,8 +90,25 @@ def predict_from_files(args):
     gpu = args.gpu
     if gpu >= 0 and torch.cuda.is_available():
         device = torch.device(f"cuda:{gpu:d}")
+        # Warn if the GPU compute capability is not supported by the current PyTorch build.
+        # RTX 5060 Ti and other Blackwell GPUs have sm_120 which requires torch 2.7+cu128.
+        cc = torch.cuda.get_device_capability(gpu)
+        if cc >= (12, 0):
+            import warnings
+            warnings.warn(
+                f"GPU cuda:{gpu} has compute capability sm_{cc[0]}{cc[1]} (Blackwell). "
+                f"torch {torch.__version__} only supports up to sm_90. "
+                f"Upgrade to torch>=2.7.0+cu128 for native sm_120 support. "
+                f"Note: DGL (EdgeGATConv) also requires a custom build against CUDA 12.8+ for sm_120."
+            )
+    elif getattr(args, "mps", False) and torch.backends.mps.is_available():
+        # NOTE: MPS is BLOCKED by two issues (as of DGL 2.4.0, dgl issue #4725/#7106):
+        #   1. torchaudio.MelSpectrogram produces ComplexFloat tensors that MPS cannot handle
+        #      (even with PYTORCH_ENABLE_MPS_FALLBACK=1, the complex result can't move to MPS).
+        #   2. dgl.graph().to('mps') raises KeyError: 'mps' — DGL's C++ backend has no MPS context.
+        # This branch is a placeholder for when DGL adds MPS support.
+        device = torch.device("mps")
     else:
-        # Use CPU - MPS doesn't support complex tensors needed for FFT/spectrogram
         device = torch.device("cpu")
     print(device)
 
@@ -187,6 +204,9 @@ if __name__ == '__main__':
     parser.add_argument('--test_data_path', type=str)
     parser.add_argument('--model_name', type=str)
     parser.add_argument('--gpu', type=int, default=-1)
+    parser.add_argument('--mps', action='store_true', default=False,
+                        help='Use MPS (Apple Silicon GPU) if available. BLOCKED: DGL has no MPS support.'
+                             ' See github.com/dmlc/dgl/issues/4725 and issues/7106.')
 
     args = parser.parse_args()
 
