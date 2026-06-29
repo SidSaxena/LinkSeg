@@ -142,6 +142,10 @@ def predict_from_files(args):
                 x = torch.tensor(features, device=device)
                 # compute the predictions
                 embeddings, bound_curve, class_curves, A_pred = model(x)
+                # move outputs to CPU for numpy-based post-processing
+                # (required when running on CUDA or any non-CPU device)
+                bound_curve = bound_curve.cpu()
+                class_curves = class_curves.cpu()
                 # post-process predictions (peak picking & majority vote)
                 est_times, est_labels = post_process(file, beat_times, duration, bound_curve, class_curves, args.max_past, args.max_future, args.tau)
                 # write predictions to jams format
