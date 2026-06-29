@@ -90,16 +90,20 @@ def predict_from_files(args):
     gpu = args.gpu
     if gpu >= 0 and torch.cuda.is_available():
         device = torch.device(f"cuda:{gpu:d}")
-        # Warn if the GPU compute capability is not supported by the current PyTorch build.
-        # RTX 5060 Ti and other Blackwell GPUs have sm_120 which requires torch 2.7+cu128.
+        # Warn only if THIS torch build genuinely lacks kernels for the GPU's arch
+        # (checked against torch.cuda.get_arch_list(), so torch>=2.7+cu128 on Blackwell
+        # sm_120 does NOT warn). An unsupported arch may still run via slow PTX JIT.
         cc = torch.cuda.get_device_capability(gpu)
-        if cc >= (12, 0):
+        arch = f"sm_{cc[0]}{cc[1]}"
+        supported = torch.cuda.get_arch_list()
+        if arch not in supported:
             import warnings
             warnings.warn(
-                f"GPU cuda:{gpu} has compute capability sm_{cc[0]}{cc[1]} (Blackwell). "
-                f"torch {torch.__version__} only supports up to sm_90. "
-                f"Upgrade to torch>=2.7.0+cu128 for native sm_120 support. "
-                f"Note: DGL (EdgeGATConv) also requires a custom build against CUDA 12.8+ for sm_120."
+                f"GPU cuda:{gpu} is {arch}, but torch {torch.__version__} was built for "
+                f"{supported} — kernels will fall back to PTX JIT (slow) or fail. "
+                f"For native support install a matching CUDA build "
+                f"(e.g. torch>=2.7.0+cu128 for Blackwell sm_120). DGL (EdgeGATConv) likewise "
+                f"needs a CUDA build covering this arch."
             )
     elif getattr(args, "mps", False):
         # MPS is requested but currently BLOCKED on two fronts, so we WARN and use CPU
