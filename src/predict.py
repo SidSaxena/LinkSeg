@@ -101,13 +101,20 @@ def predict_from_files(args):
                 f"Upgrade to torch>=2.7.0+cu128 for native sm_120 support. "
                 f"Note: DGL (EdgeGATConv) also requires a custom build against CUDA 12.8+ for sm_120."
             )
-    elif getattr(args, "mps", False) and torch.backends.mps.is_available():
-        # NOTE: MPS is BLOCKED by two issues (as of DGL 2.4.0, dgl issue #4725/#7106):
+    elif getattr(args, "mps", False):
+        # MPS is requested but currently BLOCKED on two fronts, so we WARN and use CPU
+        # (routing to 'mps' would crash downstream):
         #   1. torchaudio.MelSpectrogram produces ComplexFloat tensors that MPS cannot handle
         #      (even with PYTORCH_ENABLE_MPS_FALLBACK=1, the complex result can't move to MPS).
-        #   2. dgl.graph().to('mps') raises KeyError: 'mps' — DGL's C++ backend has no MPS context.
-        # This branch is a placeholder for when DGL adds MPS support.
-        device = torch.device("mps")
+        #   2. dgl.graph().to('mps') raises KeyError: 'mps' — DGL's C++ backend has no MPS context
+        #      (dgl issues #4725/#7106, open since 2022).
+        # When dgl ships an MPS backend, switch this to: device = torch.device("mps").
+        import warnings
+        warnings.warn(
+            "--mps requested, but MPS is unsupported here (dgl has no MPS backend; "
+            "torchaudio STFT emits ComplexFloat). Falling back to CPU."
+        )
+        device = torch.device("cpu")
     else:
         device = torch.device("cpu")
     print(device)
