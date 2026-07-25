@@ -119,8 +119,7 @@ def post_process(audio_file, beat_times, duration, bound_curve, class_curves, ma
 
 
 def export_to_jams(file_struct, duration, est_times, est_labels):
-    ds_path = file_struct.ds_path
-    pred_path = os.path.join(ds_path, 'predictions')
+    pred_path = os.path.join(file_struct.out_path, 'predictions')
     if not os.path.exists(pred_path):
         os.makedirs(pred_path)
     jam = jams.JAMS()

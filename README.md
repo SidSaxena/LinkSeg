@@ -142,7 +142,22 @@ To use the 9-class pre-trained model, run:
 python predict.py --test_data_path <dataset_path> --model_name ../data/model_9_classes.pt
 ```
 
-By default, segmentation predictions will be saved in [JAMS](https://jams.readthedocs.io/en/stable/quickstart.html) format under the [`dataset/predictions/`](dataset/predictions/) directory. 
+By default, segmentation predictions will be saved in [JAMS](https://jams.readthedocs.io/en/stable/quickstart.html) format under the [`dataset/predictions/`](dataset/predictions/) directory.
+
+Both scripts accept `--output_path` to write everything they produce somewhere
+other than the dataset directory, which keeps a read-only or shared audio
+collection untouched:
+
+```bash
+python preprocess_data.py --data_path <dataset_path> --output_path <results_path>
+python predict.py --test_data_path <dataset_path> --output_path <results_path> \
+    --model_name ../data/model_7_classes.pt
+```
+
+`audio_npy/`, `features/`, and `predictions/` are then created under
+`<results_path>`. Pass the same value to both scripts, since `predict.py` reads
+the features `preprocess_data.py` wrote. Omitting it keeps the original
+behaviour of writing beside the audio. 
 
 Keep in mind that boundary predictions are calculated from the features of two consecutive time frames $x\prime \prime_{i}$, $x\prime \prime_{i+1}$ and the features $e\prime_{i,i+1}$ of the link connecting them. Therefore, boundary predictions fall **between** consecutive estimated beat locations. 
 

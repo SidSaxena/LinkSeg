@@ -95,30 +95,34 @@ def wav_conversion(file):
 
 
 
-def process_track(track):
-    file_struct = FileStruct(track)
+def process_track(track, output_path=None):
+    file_struct = FileStruct(track, output_path)
     process_audio(file_struct)
     process_beats(file_struct)
 
 def preprocess_data_(args):
+    output_path = getattr(args, 'output_path', None)
     tracklist = librosa.util.find_files(os.path.join(args.data_path, 'audio'), ext=['wav', 'mp3', 'aiff', 'flac'])
     pool = mp.Pool(mp.cpu_count())
     funclist = []
     for file in tqdm(tracklist):
-        f = pool.apply_async(process_track, [file])
+        f = pool.apply_async(process_track, [file, output_path])
         funclist.append(f)
     pool.close()
     pool.join()
 
 def preprocess_data(args):
+    # Passed to each worker explicitly rather than held in module state, because
+    # a spawned pool re-imports this module and would not inherit it.
+    output_path = getattr(args, 'output_path', None) or args.data_path
     tracklist = librosa.util.find_files(os.path.join(args.data_path, 'audio'), ext=['wav', 'mp3', 'aiff', 'flac'])
     pool = mp.Pool(mp.cpu_count())
-    npy_path = os.path.join(args.data_path, 'audio_npy')
+    npy_path = os.path.join(output_path, 'audio_npy')
     if not os.path.exists(npy_path):
         os.makedirs(npy_path)
     funclist = []
     for file in tqdm(tracklist):
-        f = pool.apply_async(process_track, [file])
+        f = pool.apply_async(process_track, [file, output_path])
         funclist.append(f)
     pool.close()
     pool.join()
@@ -127,6 +131,9 @@ def preprocess_data(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--data_path', type=str)
+    parser.add_argument('--output_path', type=str, default=None,
+                        help='Directory for audio_npy/ and features/. '
+                             'Defaults to --data_path.')
     args = parser.parse_args()
     print(args)
     preprocess_data(args)

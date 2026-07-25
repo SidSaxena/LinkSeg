@@ -182,20 +182,24 @@ def remove_empty_segments(times, labels, th=2):
 
 
 class FileStruct:
-    def __init__(self, audio_file):
+    def __init__(self, audio_file, output_path=None):
         audio_file = Path(audio_file)
         self.track_name = audio_file.stem
         self.audio_file = audio_file
         self.ds_path = audio_file.parents[1]
-        self.json_file = self.ds_path.joinpath('features', self.track_name
+        # Everything this run produces goes under out_path, which defaults to the
+        # dataset directory so that an unset output_path behaves as before.
+        # References are an input and stay with the dataset either way.
+        self.out_path = Path(output_path) if output_path is not None else self.ds_path
+        self.json_file = self.out_path.joinpath('features', self.track_name
                                                + '.json')
         self.ref_file = self.ds_path.joinpath('references', self.track_name
                                               + '.jams')
-        self.beat_file = self.ds_path.joinpath('features', self.track_name+'_beats_'
+        self.beat_file = self.out_path.joinpath('features', self.track_name+'_beats_'
                                               + '.json')
-        self.predictions_file = self.ds_path.joinpath('predictions', self.track_name
+        self.predictions_file = self.out_path.joinpath('predictions', self.track_name
                                               + '.jams')
-        self.audio_npy_file = self.ds_path.joinpath('audio_npy', self.track_name
+        self.audio_npy_file = self.out_path.joinpath('audio_npy', self.track_name
                                               + '.npy')                                         
 
         
@@ -207,17 +211,17 @@ class FileStruct:
                 self.json_file, self.ref_file)
 
     def get_feat_filename(self, feat_id):
-        return self.ds_path.joinpath('features', feat_id,
+        return self.out_path.joinpath('features', feat_id,
                                      self.track_name + '.npy')
 
-def clean_tracklist_audio(data_path, annotations=None, tracklist_=[]):
+def clean_tracklist_audio(data_path, annotations=None, tracklist_=[], output_path=None):
     if tracklist_ == []:
         tracklist = librosa.util.find_files(os.path.join(data_path, 'audio'), ext=['wav', 'mp3', 'aiff', 'flac'])
     else:
         tracklist = tracklist_
     tracklist_clean = []
     for song in tqdm(tracklist):
-        file_struct = FileStruct(song)
+        file_struct = FileStruct(song, output_path)
         if os.path.isfile(file_struct.beat_file) and os.path.isfile(file_struct.audio_npy_file):
             if annotations and os.path.isfile(file_struct.ref_file):
                 tracklist_clean.append(song)

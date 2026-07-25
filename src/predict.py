@@ -128,7 +128,10 @@ def predict_from_files(args):
     print('Model name =', args.model_name)
     print(model)
 
-    tracklist = clean_tracklist_audio(args.test_data_path, annotations=False)#[::-1]
+    output_path = getattr(args, 'output_path', None)
+    tracklist = clean_tracklist_audio(
+        args.test_data_path, annotations=False, output_path=output_path
+    )#[::-1]
     pbar = tqdm(tracklist)
 
     with torch.inference_mode():  
@@ -136,7 +139,7 @@ def predict_from_files(args):
             
             pbar.set_description(file)
             # load audio file
-            file_struct = FileStruct(file)
+            file_struct = FileStruct(file, output_path)
             if os.path.isfile(file_struct.predictions_file):
                 print('Predictions found, skipping')
                 continue
@@ -218,6 +221,10 @@ if __name__ == '__main__':
     # paths
     parser.add_argument('--test_data_path', type=str)
     parser.add_argument('--model_name', type=str)
+    parser.add_argument('--output_path', type=str, default=None,
+                        help='Directory holding features/ and audio_npy/ from '
+                             'preprocessing, and where predictions/ is written. '
+                             'Defaults to --test_data_path.')
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--mps', action='store_true', default=False,
                         help='Use MPS (Apple Silicon GPU) if available. BLOCKED: DGL has no MPS support.'
