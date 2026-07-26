@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from EMA import EMA
 from einops import rearrange
+import dgl_compat  # noqa: F401  must precede dgl; see its docstring
 import dgl
 
 
