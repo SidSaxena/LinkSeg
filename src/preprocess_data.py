@@ -10,21 +10,39 @@ import multiprocessing as mp
 
 from tqdm import tqdm
 from pydub import AudioSegment
-from data_utils import FileStruct, write_beats
+from data_utils import FileStruct, find_audio, write_beats
+
+
+def wav_cache_path(file_struct):
+    """Decoded-audio path, under the output directory rather than beside the input.
+
+    Keeping it out of the audio directory stops a later run from finding both a
+    track and its own conversion.
+    """
+    cache = Path(file_struct.out_path).joinpath('wav_cache')
+    cache.mkdir(parents=True, exist_ok=True)
+    return str(cache.joinpath(file_struct.track_name + '.wav'))
+
+
+def to_wav(file_struct):
+    """Decode to wav in the cache, leaving the source file untouched.
+
+    The source was previously deleted once converted, which destroyed the input
+    audio and left a second run reading wav where the first had read mp3.
+    """
+    dst = wav_cache_path(file_struct)
+    if not os.path.isfile(dst):
+        AudioSegment.from_file(file_struct.audio_file).export(dst, format='wav')
+    return dst
 
 
 def madmom_beats(file_struct, y_, sr):
-    
-    if '.mp3' in str(file_struct.audio_file):
-        song_name = str(file_struct.audio_file).split('.mp3')[0]
-        dst = os.path.join(file_struct.ds_path, song_name+'.wav')                                                  
-        sound = AudioSegment.from_mp3(file_struct.audio_file)
-        sound.export(dst, format="wav")
-        audiofile = dst
-        os.remove(file_struct.audio_file)
+
+    if Path(file_struct.audio_file).suffix.lower() != '.wav':
+        audiofile = to_wav(file_struct)
         file_struct.audio_file = audiofile
         y_, sr = librosa.load(audiofile, mono=True)
-    
+
     sr_ = sr
     if sr != 44100:
         y_ = librosa.resample(y_, orig_sr=sr, target_sr=44100)
@@ -60,7 +78,7 @@ def process_beats(file_struct):
 
 
 def get_paths(ds_path, config):
-    tracklist = librosa.util.find_files(os.path.join(ds_path, 'audio'), ext=config.dataset.audio_exts)
+    tracklist = find_audio(ds_path, ext=config.dataset.audio_exts)
     npy_path = os.path.join(ds_path, 'audio_npy')
     if not os.path.exists(npy_path):
         os.makedirs(npy_path)
@@ -79,19 +97,11 @@ def process_audio(file_struct):
         np.save(open(file_struct.audio_npy_file, 'wb'), x)
 
 
-def wav_conversion(file):
-    if '.mp3' in file:
-        song_name = str(file).split('.mp3')[0]
-        file_struct = FileStruct(file)
-        dst = song_name+'.wav'
-        # convert wav to mp3                                                            
-        sound = AudioSegment.from_mp3(file_struct.audio_file)
-        sound.export(dst, format="wav")
-        os.remove(file_struct.audio_file)
-        audiofile = dst
-        return audiofile
-    else:
+def wav_conversion(file, output_path=None):
+    """Wav path for file, decoding through the cache when it is not already wav."""
+    if Path(file).suffix.lower() == '.wav':
         return file
+    return to_wav(FileStruct(file, output_path))
 
 
 
@@ -102,7 +112,7 @@ def process_track(track, output_path=None):
 
 def preprocess_data_(args):
     output_path = getattr(args, 'output_path', None)
-    tracklist = librosa.util.find_files(os.path.join(args.data_path, 'audio'), ext=['wav', 'mp3', 'aiff', 'flac'])
+    tracklist = find_audio(args.data_path)
     pool = mp.Pool(mp.cpu_count())
     funclist = []
     for file in tqdm(tracklist):
@@ -115,7 +125,7 @@ def preprocess_data(args):
     # Passed to each worker explicitly rather than held in module state, because
     # a spawned pool re-imports this module and would not inherit it.
     output_path = getattr(args, 'output_path', None) or args.data_path
-    tracklist = librosa.util.find_files(os.path.join(args.data_path, 'audio'), ext=['wav', 'mp3', 'aiff', 'flac'])
+    tracklist = find_audio(args.data_path)
     pool = mp.Pool(mp.cpu_count())
     npy_path = os.path.join(output_path, 'audio_npy')
     if not os.path.exists(npy_path):

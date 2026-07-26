@@ -216,9 +216,27 @@ class FileStruct:
         return self.out_path.joinpath('features', feat_id,
                                      self.track_name + '.npy')
 
+AUDIO_EXTS = ['wav', 'mp3', 'aiff', 'flac']
+
+
+def find_audio(data_path, ext=None):
+    """Audio from <data_path>/audio, or from data_path itself when that is absent.
+
+    Only the audio/ subdirectory was searched before, so a flat directory or one
+    laid out per album produced an empty tracklist and exit status 0.
+    """
+    ext = ext if ext is not None else AUDIO_EXTS
+    nested = os.path.join(data_path, 'audio')
+    if os.path.isdir(nested):
+        found = librosa.util.find_files(nested, ext=ext)
+        if found:
+            return found
+    return librosa.util.find_files(data_path, ext=ext, recurse=True)
+
+
 def clean_tracklist_audio(data_path, annotations=None, tracklist_=[], output_path=None):
     if tracklist_ == []:
-        tracklist = librosa.util.find_files(os.path.join(data_path, 'audio'), ext=['wav', 'mp3', 'aiff', 'flac'])
+        tracklist = find_audio(data_path)
     else:
         tracklist = tracklist_
     tracklist_clean = []
