@@ -155,7 +155,21 @@ python predict.py --test_data_path <dataset_path> --output_path <results_path> \
 ```
 
 `audio_npy/`, `features/`, and `predictions/` are then created under
-`<results_path>`. Pass the same value to both scripts, since `predict.py` reads
+`<results_path>`.
+
+`--save_curves` additionally writes `curves/<track>.npz` holding the quantities
+the network computes on the way to its prediction, which are otherwise
+discarded once post-processing has consumed them:
+
+| Array | Shape | Contents |
+|---|---|---|
+| `boundary_curve` | `(beats-1,)` | boundary likelihood between consecutive beats |
+| `class_curves` | `(beats, classes)` | per-class activation at each beat |
+| `embeddings` | `(beats, dim)` | frame embeddings from the graph attention module |
+| `self_similarity` | `(beats, beats, 3)` | link predictions: same-segment, same-section, different |
+| `beat_times`, `duration` | | the time grid the arrays are indexed on |
+
+The flag does not change the predicted segmentation. Pass the same value to both scripts, since `predict.py` reads
 the features `preprocess_data.py` wrote. Omitting it keeps the original
 behaviour of writing beside the audio. 
 

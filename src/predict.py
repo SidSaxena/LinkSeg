@@ -160,6 +160,22 @@ def predict_from_files(args):
                 # (required when running on CUDA or any non-CPU device)
                 bound_curve = bound_curve.cpu()
                 class_curves = class_curves.cpu()
+                if getattr(args, 'save_curves', False):
+                    # The network's own intermediates. post_process consumes
+                    # them and they are otherwise discarded, so nothing
+                    # downstream can inspect what the boundaries were picked
+                    # from.
+                    curves_path = file_struct.curves_file
+                    curves_path.parent.mkdir(parents=True, exist_ok=True)
+                    np.savez_compressed(
+                        curves_path,
+                        boundary_curve=bound_curve.detach().numpy(),
+                        class_curves=class_curves.detach().numpy(),
+                        embeddings=embeddings.detach().cpu().numpy(),
+                        self_similarity=A_pred.detach().cpu().numpy(),
+                        beat_times=np.asarray(beat_times, dtype=float),
+                        duration=np.asarray(duration, dtype=float),
+                    )
                 # post-process predictions (peak picking & majority vote)
                 est_times, est_labels = post_process(file, beat_times, duration, bound_curve, class_curves, args.max_past, args.max_future, args.tau)
                 # write predictions to jams format
@@ -221,6 +237,10 @@ if __name__ == '__main__':
     # paths
     parser.add_argument('--test_data_path', type=str)
     parser.add_argument('--model_name', type=str)
+    parser.add_argument('--save_curves', action='store_true', default=False,
+                        help='Write the boundary curve, per-class curves, frame '
+                             'embeddings and self-similarity matrix to curves/ '
+                             'as one .npz per track. Off by default.')
     parser.add_argument('--output_path', type=str, default=None,
                         help='Directory holding features/ and audio_npy/ from '
                              'preprocessing, and where predictions/ is written. '

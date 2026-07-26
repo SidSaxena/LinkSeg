@@ -200,7 +200,9 @@ class FileStruct:
         self.predictions_file = self.out_path.joinpath('predictions', self.track_name
                                               + '.jams')
         self.audio_npy_file = self.out_path.joinpath('audio_npy', self.track_name
-                                              + '.npy')                                         
+                                              + '.npy')
+        self.curves_file = self.out_path.joinpath('curves', self.track_name
+                                              + '.npz')                                         
 
         
     def __repr__(self):
